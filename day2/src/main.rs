@@ -1,10 +1,18 @@
-use std::{collections::HashMap, fs};
+use std::fs;
 
-#[derive(Eq, PartialEq, Hash, Clone, Debug)]
+#[derive(PartialEq, Clone)]
 enum Shape {
     Rock,
     Paper,
     Scissors,
+}
+
+type ShapePair = (Shape, Shape);
+
+enum RoundOutcome {
+    Win,
+    Draw,
+    Lose,
 }
 
 fn get_shape(shape: &str) -> Option<Shape> {
@@ -16,15 +24,6 @@ fn get_shape(shape: &str) -> Option<Shape> {
     }
 }
 
-type ShapePair = (Shape, Shape);
-
-#[derive(Eq, PartialEq, Hash, Clone)]
-enum RoundOutcome {
-    Win,
-    Draw,
-    Lose,
-}
-
 fn get_outcome(string: &str) -> Option<RoundOutcome> {
     match string {
         "X" => Some(RoundOutcome::Lose),
@@ -34,40 +33,67 @@ fn get_outcome(string: &str) -> Option<RoundOutcome> {
     }
 }
 
-fn get_pairings_p1(lines: &Vec<&str>) -> Vec<ShapePair> {
+fn get_winning_shape(shape: &Shape) -> Shape {
+    match shape {
+        Shape::Scissors => Shape::Rock,
+        Shape::Paper => Shape::Scissors,
+        Shape::Rock => Shape::Paper,
+    }
+}
+
+fn get_losing_shape(shape: &Shape) -> Shape {
+    match shape {
+        Shape::Rock => Shape::Scissors,
+        Shape::Paper => Shape::Rock,
+        Shape::Scissors => Shape::Paper,
+    }
+}
+
+fn get_shape_score(shape: &Shape) -> i32 {
+    match shape {
+        Shape::Rock => 1,
+        Shape::Paper => 2,
+        Shape::Scissors => 3,
+    }
+}
+
+fn get_outcome_score(outcome: &RoundOutcome) -> i32 {
+    match outcome {
+        RoundOutcome::Win => 6,
+        RoundOutcome::Draw => 3,
+        RoundOutcome::Lose => 0,
+    }
+}
+
+fn get_best_shape(opponent: &Shape, target_outcome: &RoundOutcome) -> Shape {
+    match target_outcome {
+        RoundOutcome::Win => get_winning_shape(&opponent),
+        RoundOutcome::Draw => opponent.clone(),
+        RoundOutcome::Lose => get_losing_shape(&opponent),
+    }
+}
+    
+fn get_pairings(lines: &Vec<&str>, use_target_outcome: bool) -> Vec<ShapePair> {
     lines.iter()
         .filter_map(|line| {
             let (opponent_str, player_str) = line.split_once(' ')?;
+
             let opponent = get_shape(opponent_str)?;
-            let player = get_shape(player_str)?;
+            let player = if use_target_outcome {
+                get_best_shape(&opponent, &get_outcome(player_str)?)
+            } else {
+                get_shape(player_str)?
+            };
 
             Some((opponent, player))
         })
         .collect()
 }
 
-fn get_pairings_p2(lines: &Vec<&str>, winning_pairs: &HashMap<Shape, Shape>, losing_pairs: &HashMap<Shape, Shape>) -> Vec<ShapePair> {
-    lines.iter()
-        .filter_map(|line| {
-            let (opponent_str, player_str) = line.split_once(' ')?;
-
-            let opponent = get_shape(opponent_str)?;
-            let player = match get_outcome(player_str)? {
-                RoundOutcome::Win => winning_pairs.get(&opponent),
-                RoundOutcome::Draw => Some(&opponent),
-                RoundOutcome::Lose => losing_pairs.get(&opponent),
-            }?.clone();
-
-            Some((opponent, player))
-        })
-        .collect()
-}
-
-fn get_score(pairings: Vec<ShapePair>, winning_pairs: &HashMap<Shape, Shape>, outcome_scores: &HashMap<RoundOutcome, i32>, shape_scores: &HashMap<Shape, i32>) -> i32 {
-    pairings
-        .iter()
-        .filter_map(|(opponent, player)| {
-            let outcome = if winning_pairs.get(opponent) == Some(player) {
+fn get_score(pairings: Vec<ShapePair>) -> i32 {
+    pairings.iter()
+        .map(|(opponent, player)| {
+            let outcome = if get_winning_shape(&opponent).eq(player) {
                 RoundOutcome::Win
             } else if opponent == player {
                 RoundOutcome::Draw
@@ -75,47 +101,21 @@ fn get_score(pairings: Vec<ShapePair>, winning_pairs: &HashMap<Shape, Shape>, ou
                 RoundOutcome::Lose
             };
             
-            Some(shape_scores.get(&player)? + outcome_scores.get(&outcome)?)
+            get_shape_score(&player) + get_outcome_score(&outcome)
         })
-        .fold(0, |a, b| a + b)
+        .sum()
 }
 
 fn main() {
-    // mapping of opponent choice -> winning choice
-    let winning_pairs = HashMap::from([
-        (Shape::Scissors, Shape::Rock),
-        (Shape::Paper, Shape::Scissors),
-        (Shape::Rock, Shape::Paper),
-    ]);
-    
-    // mapping of opponent choice -> losing choice
-    let losing_pairs = HashMap::from([
-        (Shape::Rock, Shape::Scissors),
-        (Shape::Scissors, Shape::Paper),
-        (Shape::Paper, Shape::Rock),
-    ]);
-
-    let outcome_scores = HashMap::from([
-        (RoundOutcome::Win, 6),
-        (RoundOutcome::Draw, 3),
-        (RoundOutcome::Lose, 0),
-    ]);
-    
-    let shape_scores = HashMap::from([
-        (Shape::Rock, 1),
-        (Shape::Paper, 2),
-        (Shape::Scissors, 3),
-    ]);
-
     let path = "input.txt";
     let contents = fs::read_to_string(path).expect("Could not open file");
     let lines = contents.split("\n").collect();
 
-    let p1_pairings = get_pairings_p1(&lines);
-    let p1_score = get_score(p1_pairings, &winning_pairs, &outcome_scores, &shape_scores);
+    let p1_pairings = get_pairings(&lines, false);
+    let p1_score = get_score(p1_pairings);
 
-    let p2_pairings = get_pairings_p2(&lines, &winning_pairs, &losing_pairs);
-    let p2_score = get_score(p2_pairings, &winning_pairs, &outcome_scores, &shape_scores);
+    let p2_pairings = get_pairings(&lines, true);
+    let p2_score = get_score(p2_pairings);
 
     println!("Score with part 1 strategy: {p1_score}");
     println!("Score with part 2 strategy: {p2_score}");
