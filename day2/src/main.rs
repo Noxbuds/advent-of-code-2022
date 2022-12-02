@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, env};
+use std::{collections::HashMap, fs};
 
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]
 enum Shape {
@@ -64,26 +64,20 @@ fn get_pairings_p2(lines: &Vec<&str>, winning_pairs: &HashMap<Shape, Shape>, los
 }
 
 fn get_score(pairings: Vec<ShapePair>, winning_pairs: &HashMap<Shape, Shape>, outcome_scores: &HashMap<RoundOutcome, i32>, shape_scores: &HashMap<Shape, i32>) -> i32 {
-    let player_shape_score = pairings
+    pairings
         .iter()
-        .filter_map(|(_, shape)| shape_scores.get(&shape))
-        .fold(0, |a, b| a + b);
-
-    let player_outcome_score = pairings
-        .iter()
-        .map(|(opponent, player)| {
-            if winning_pairs.get(opponent) == Some(player) {
+        .filter_map(|(opponent, player)| {
+            let outcome = if winning_pairs.get(opponent) == Some(player) {
                 RoundOutcome::Win
             } else if opponent == player {
                 RoundOutcome::Draw
             } else {
                 RoundOutcome::Lose
-            }
+            };
+            
+            Some(shape_scores.get(&player)? + outcome_scores.get(&outcome)?)
         })
-        .filter_map(|outcome| outcome_scores.get(&outcome))
-        .fold(0, |a, b| a + b);
-
-    return player_shape_score + player_outcome_score;
+        .fold(0, |a, b| a + b)
 }
 
 fn main() {
