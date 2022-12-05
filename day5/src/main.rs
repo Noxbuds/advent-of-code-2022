@@ -53,14 +53,14 @@ fn main() {
         .collect();
 
     let mut stacks = get_stacks(crate_lines);
-    let moves = lines.iter()
-        .filter_map(|line| get_move(line));
+    let moves = lines.iter().filter_map(|line| get_move(line));
 
     for (count, from, to) in moves {
-        for _ in 0..count {
+        for i in 0..count {
             let x = stacks[from - 1].pop();
+            let id = stacks[to - 1].len() - i as usize;
             if let Some(x) = x {
-                stacks[to - 1].push(x);
+                stacks[to - 1].insert(id, x);
             }
         }
     }
@@ -70,5 +70,5 @@ fn main() {
         .collect::<Vec<&str>>()
         .join("");
 
-    println!("The top crates for part 1 are {top_values}");
+    println!("The top crates for part 2 are {top_values}");
 }
